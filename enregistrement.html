@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>VlogFlow - Enregistrement 9:16</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="apple-touch-icon" href="assets/img/logos/apple.png">
+    <style>
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .portrait-shell {
+            position: relative;
+            height: min(100dvh, 100vw * 16 / 9);
+            width: min(100vw, 100dvh * 9 / 16);
+            background: #020617;
+            overflow: hidden;
+        }
+
+        #preview {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }
+    </style>
+</head>
+
+<body class="text-slate-100">
+    <div class="portrait-shell">
+        <video id="preview" autoplay muted playsinline></video>
+
+        <!-- Barre du haut -->
+        <header
+            class="absolute top-0 left-0 right-0 z-50 h-16 px-4 flex items-center justify-between bg-gradient-to-b from-black/60 to-transparent">
+            <div class="flex items-center space-x-3">
+                <a href="index.html"
+                    class="w-9 h-9 rounded-xl bg-slate-900/60 border border-white/10 flex items-center justify-center text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                        </path>
+                    </svg>
+                </a>
+                <span class="font-bold text-sm text-white drop-shadow-md">Studio 9:16</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button id="switchBtn" onclick="switchCamera()" title="Changer de caméra"
+                    class="w-9 h-9 rounded-xl bg-slate-900/60 border border-white/10 flex items-center justify-center text-white active:scale-95">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                        </path>
+                    </svg>
+                </button>
+                <div id="authStatusBadge"
+                    class="text-xs px-3 py-1.5 rounded-lg bg-slate-900/60 border border-white/10 text-slate-200">
+                    Vérification...
+                </div>
+            </div>
+        </header>
+
+        <!-- REC -->
+        <div id="recBadge"
+            class="hidden absolute top-20 left-4 z-40 flex items-center space-x-2 bg-red-600/30 border border-red-500/50 backdrop-blur-md px-3.5 py-1.5 rounded-full">
+            <div class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+            <span id="timerText" class="text-xs font-semibold text-red-200 tracking-wider">REC 00:00</span>
+        </div>
+
+        <div id="lensBar"
+            class="hidden absolute bottom-36 left-0 right-0 z-40 flex justify-center flex-wrap gap-2 px-4"></div>
+
+        <div id="camInfo"
+            class="absolute bottom-28 left-0 right-0 z-40 text-center text-[11px] text-white/70 drop-shadow"></div>
+
+        <!-- Conteneur des files d'attente d'upload (accumulés) -->
+        <div id="uploadsQueue"
+            class="absolute top-20 right-4 z-40 flex flex-col space-y-2 max-h-[40vh] overflow-y-auto pointer-events-none">
+        </div>
+
+        <!-- Boutons -->
+        <div class="absolute bottom-10 left-6 right-6 z-40 flex items-center justify-center">
+            <button id="startBtn" onclick="startRecording()"
+                class="flex-1 py-4 px-6 bg-red-600/90 text-white font-semibold rounded-2xl shadow-xl backdrop-blur-md border border-red-400/30 active:scale-[0.98] flex items-center justify-center space-x-2">
+                <div class="w-4 h-4 rounded-full bg-white"></div>
+                <span>Démarrer</span>
+            </button>
+            <button id="stopBtn" onclick="stopRecording()"
+                class="hidden flex-1 py-4 px-6 bg-slate-900/80 text-slate-200 font-semibold rounded-2xl border border-white/20 backdrop-blur-md shadow-xl active:scale-[0.98]">
+                Arrêter
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSPUArpApBuK0Cn9VbeMtqk4JC-gqruJc",
+            authDomain: "morgann-music-cp.firebaseapp.com",
+            projectId: "morgann-music-cp",
+            storageBucket: "morgann-music-cp.firebasestorage.app",
+            messagingSenderId: "666812685196",
+            appId: "1:666812685196:web:bb237f4b53a92f038494a9",
+            measurementId: "G-P3EJ3T9RKS"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        const authStatusBadge = document.getElementById('authStatusBadge');
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                authStatusBadge.textContent = user.email.split('@')[0];
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        const SIZES = [[1440, 2560], [1080, 1920], [720, 1280]];
+        let OUT_W = 1080, OUT_H = 1920;
+
+        let stream = null;
+        let mediaRecorder = null;
+        let recordStream = null;
+        let canvas = null, ctx = null;
+        let drawTimer = null, segmentInterval = null, timerInterval = null;
+        let startTime = 0;
+        let useFrontCamera = true;
+        let isRecording = false;
+        let rearDeviceId = null;
+        const fitMode = 'contain';
+
+        function applyFit() {
+            preview.style.objectFit = fitMode;
+        }
+
+        const preview = document.getElementById('preview');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const recBadge = document.getElementById('recBadge');
+        const uploadsQueue = document.getElementById('uploadsQueue');
+        const timerText = document.getElementById('timerText');
+
+        async function initCamera() {
+            try {
+                if (stream) stream.getTracks().forEach(t => t.stop());
+
+                const wantPortrait = window.innerHeight >= window.innerWidth;
+                const open = (w, h) => navigator.mediaDevices.getUserMedia({
+                    video: {
+                        ...((!useFrontCamera && rearDeviceId)
+                            ? { deviceId: { exact: rearDeviceId } }
+                            : { facingMode: useFrontCamera ? 'user' : 'environment' }),
+                        width: { ideal: w },
+                        height: { ideal: h },
+                        frameRate: { ideal: 30, max: 30 }
+                    },
+                    audio: true
+                });
+                const isPortrait = (st) => {
+                    const s = st.getVideoTracks()[0].getSettings();
+                    return s.height >= s.width;
+                };
+
+                let best = null;
+                for (const [w, h] of SIZES) {
+                    let st = await open(w, h);
+                    if (wantPortrait && !isPortrait(st)) {
+                        st.getTracks().forEach(t => t.stop());
+                        st = await open(h, w);
+                    }
+                    const cs = st.getVideoTracks()[0].getSettings();
+                    const ok = !wantPortrait || isPortrait(st);
+                    const long = Math.max(cs.width, cs.height);
+                    if (!best || (ok && !best.ok) || (ok === best.ok && long > best.long)) {
+                        if (best) best.st.getTracks().forEach(t => t.stop());
+                        best = { st, ok, long };
+                    } else {
+                        st.getTracks().forEach(t => t.stop());
+                    }
+                    if (best.ok && best.long >= h * 0.95) break;
+                }
+                stream = best.st;
+
+                OUT_H = Math.min(2560, Math.max(1280, Math.round(best.long / 2) * 2));
+                OUT_W = Math.round(OUT_H * 9 / 16 / 2) * 2;
+
+                const track = stream.getVideoTracks()[0];
+                try {
+                    const caps = track.getCapabilities ? track.getCapabilities() : {};
+                    if (caps.zoom) await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] });
+                } catch (e) { console.log('zoom non supporté', e); }
+
+                preview.srcObject = stream;
+                preview.style.transform = useFrontCamera ? 'scaleX(-1)' : 'none';
+                await preview.play();
+
+                const s = stream.getVideoTracks()[0].getSettings();
+                document.getElementById('camInfo').textContent = `Caméra : ${s.width}x${s.height} → fichier ${OUT_W}x${OUT_H}`;
+                applyFit();
+                refreshLenses();
+            } catch (err) {
+                console.error("Erreur caméra :", err);
+                if (rearDeviceId) { rearDeviceId = null; return initCamera(); }
+                alert("Impossible d'accéder à la caméra / au micro.");
+            }
+        }
+
+        initCamera();
+
+        let orientTimer = null;
+        const onOrientation = () => {
+            clearTimeout(orientTimer);
+            orientTimer = setTimeout(() => { if (!isRecording) initCamera(); }, 400);
+        };
+        window.addEventListener('orientationchange', onOrientation);
+        window.addEventListener('resize', onOrientation);
+
+        window.switchCamera = async function () {
+            if (isRecording) return;
+            useFrontCamera = !useFrontCamera;
+            rearDeviceId = null;
+            await initCamera();
+        };
+
+        function lensName(label, index) {
+            const name = (label || '').trim();
+            const normalized = name.toLowerCase();
+            if (/ultra|grand angle|wide/i.test(normalized)) return 'Ultra grand angle';
+            if (/tele|zoom/i.test(normalized)) return 'Téléobjectif';
+            if (/wide|principal|main|normal|standard/i.test(normalized)) return 'Normal';
+            if (/back|rear|arrière/i.test(normalized)) return 'Grand angle';
+            return `Objectif ${index + 1}`;
+        }
+
+        function dedupeLensEntries(devs) {
+            const seen = new Set();
+            return devs.filter(device => {
+                const raw = (device.label || '').trim();
+                const useable = !/(front|user|avant|selfie|facetime|face time|virtual|camera 0|camera 1|camera 2|camera 3)/i.test(raw);
+                if (!useable) return false;
+                const key = (lensName(raw, 0) || raw).toLowerCase().replace(/\s+/g, ' ');
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+        }
+
+        async function refreshLenses() {
+            const bar = document.getElementById('lensBar');
+            bar.innerHTML = '';
+            if (useFrontCamera) {
+                bar.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const inputs = await navigator.mediaDevices.enumerateDevices();
+                const devs = dedupeLensEntries(inputs.filter(d => d.kind === 'videoinput'));
+                if (!devs.length) { bar.classList.add('hidden'); return; }
+
+                const currentId = stream?.getVideoTracks?.()[0]?.getSettings?.().deviceId || null;
+                devs.forEach((device, index) => {
+                    const b = document.createElement('button');
+                    const label = lensName(device.label, index);
+                    b.textContent = label;
+                    const active = currentId && device.deviceId === currentId;
+                    b.className = 'px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md border active:scale-95 ' +
+                        (active ? 'bg-white text-black border-white' : 'bg-slate-900/60 text-white border-white/20');
+                    b.onclick = () => selectLens(device.deviceId);
+                    bar.appendChild(b);
+                });
+                bar.classList.remove('hidden');
+            } catch (e) {
+                bar.classList.add('hidden');
+            }
+        }
+
+        window.selectLens = async function (id) {
+            if (isRecording) return;
+            rearDeviceId = id;
+            await initCamera();
+        };
+
+        function drawFrame() {
+            const vw = preview.videoWidth, vh = preview.videoHeight;
+            if (!vw || !vh) return;
+
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, OUT_W, OUT_H);
+
+            const scale = Math.min(OUT_W / vw, OUT_H / vh);
+            const dw = vw * scale;
+            const dh = vh * scale;
+            ctx.drawImage(preview, (OUT_W - dw) / 2, (OUT_H - dh) / 2, dw, dh);
+        }
+
+        function pickMimeType() {
+            const types = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+            return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+        }
+
+        window.startRecording = function () {
+            if (!stream || isRecording) return;
+
+            canvas = document.createElement('canvas');
+            canvas.width = OUT_W;
+            canvas.height = OUT_H;
+            ctx = canvas.getContext('2d');
+            drawFrame();
+            drawTimer = setInterval(drawFrame, 1000 / 30);
+
+            recordStream = canvas.captureStream(30);
+            stream.getAudioTracks().forEach(t => recordStream.addTrack(t));
+
+            const mimeType = pickMimeType();
+            mediaRecorder = new MediaRecorder(
+                recordStream,
+                mimeType ? { mimeType, videoBitsPerSecond: Math.round(OUT_W * OUT_H * 3) } : {}
+            );
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) uploadBlob(event.data, mediaRecorder.mimeType);
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            startBtn.classList.add('hidden');
+            stopBtn.classList.remove('hidden');
+            recBadge.classList.remove('hidden');
+
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const e = Math.floor((Date.now() - startTime) / 1000);
+                timerText.textContent = `REC ${String(Math.floor(e / 60)).padStart(2, '0')}:${String(e % 60).padStart(2, '0')}`;
+            }, 1000);
+
+            segmentInterval = setInterval(() => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    mediaRecorder.start();
+                }
+            }, 60000);
+        };
+
+        window.stopRecording = function () {
+            clearInterval(segmentInterval);
+            clearInterval(timerInterval);
+            clearInterval(drawTimer);
+
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+            isRecording = false;
+
+            startBtn.classList.remove('hidden');
+            stopBtn.classList.add('hidden');
+            recBadge.classList.add('hidden');
+            timerText.textContent = 'REC 00:00';
+        };
+
+        async function uploadBlob(data, mimeType) {
+            const type = (mimeType || 'video/webm').split(';')[0];
+            const ext = type.includes('mp4') ? 'mp4' : 'webm';
+            const blob = new Blob([data], { type });
+
+            const itemEl = document.createElement('div');
+            itemEl.className = "flex items-center space-x-2 bg-slate-900/80 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full shadow-lg pointer-events-auto transition-all duration-300 opacity-100";
+            itemEl.innerHTML = `
+                <div class="relative w-5 h-5 flex items-center justify-center shrink-0">
+                    <svg class="w-full h-full transform -rotate-90">
+                        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2.5" class="text-slate-700" fill="none"></circle>
+                        <circle class="progress-circle text-indigo-400 transition-all duration-200" cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2.5" fill="none" stroke-dasharray="50.26" stroke-dashoffset="50.26"></circle>
+                    </svg>
+                </div>
+                <span class="progress-text text-[11px] font-semibold text-slate-200">0%</span>
+            `;
+            uploadsQueue.appendChild(itemEl);
+
+            const circle = itemEl.querySelector('.progress-circle');
+            const text = itemEl.querySelector('.progress-text');
+
+            const formData = new FormData();
+            const filename = `vlog_${currentUser ? currentUser.uid : 'anon'}_${Date.now()}.${ext}`;
+            formData.append('file', blob, filename);
+            formData.append('folder', 'Vlogs');
+
+            try {
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'https://api.videolead.mm-cp.uk/upload', true);
+
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const percent = Math.round((e.loaded / e.total) * 100);
+                            text.textContent = `${percent}%`;
+                            const offset = 50.26 - (50.26 * percent) / 100;
+                            circle.style.strokeDashoffset = offset;
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) resolve();
+                        else reject(new Error("Erreur serveur"));
+                    };
+
+                    xhr.onerror = () => reject(new Error("Erreur réseau"));
+                    xhr.send(formData);
+                });
+
+                // Succès : cadenas + "Envoyé dans le cloud"
+                itemEl.className = "flex items-center space-x-2 bg-emerald-950/80 backdrop-blur-md border border-emerald-500/30 px-3 py-1.5 rounded-full shadow-lg pointer-events-auto transition-all duration-500 opacity-100";
+                itemEl.innerHTML = `
+                    <div class="w-5 h-5 flex items-center justify-center text-emerald-400 shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                    </div>
+                    <span class="text-[11px] font-semibold text-emerald-200">Envoyé dans le cloud</span>
+                `;
+
+                // Disparition en fondu au bout de 10 secondes exactement
+                setTimeout(() => {
+                    itemEl.style.opacity = '0';
+                    itemEl.style.transform = 'translateY(-10px)';
+                    setTimeout(() => itemEl.remove(), 500);
+                }, 10000);
+
+            } catch (err) {
+                console.error("Erreur upload :", err);
+                itemEl.className = "flex items-center space-x-2 bg-red-950/80 backdrop-blur-md border border-red-500/30 px-3 py-1.5 rounded-full shadow-lg pointer-events-auto transition-all duration-300 opacity-100";
+                text.textContent = 'Échec';
+
+                setTimeout(() => {
+                    itemEl.style.opacity = '0';
+                    setTimeout(() => itemEl.remove(), 500);
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,15 @@
+name = "vlog-worker"
+main = "src/index.js"
+compatibility_date = "2026-03-01"
+
+routes = [
+  { pattern = "api.videolead.mm-cp.uk/*", zone_name = "mm-cp.uk" }
+]
+
+r2_buckets = [
+  { binding = "MY_BUCKET", bucket_name = "videolead" }
+]
+
+d1_databases = [
+  { binding = "DB", database_name = "videolead", database_id = "0e1385cb-ff49-4e53-adde-18d567c48dc0" }
+]

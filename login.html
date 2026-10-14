@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VlogFlow - Connexion</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body {
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(180deg, rgb(146, 230, 255), rgb(213, 247, 255));
+            color: #f1f5f9;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+
+
+        .login-card {
+            max-width: 28rem;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.411);
+            border: 1px solid #ffffff;
+            padding: 2rem;
+            border-radius: 36px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            backdrop-filter: blur(24px);
+        }
+
+        .login-header {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .login-icon img {
+            width: 4rem;
+            height: 4rem;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 1rem;
+        }
+
+
+        .login-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            color: #000000;
+        }
+
+        .login-header p {
+            font-size: 0.75rem;
+            color: #757575;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .form-group label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #525252;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: #ffffff80;
+            border: 1px solid #ffffff;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            color: #000000;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            border-color: #45bbff;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #errorMessage {
+            padding: 0.75rem;
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 0.75rem;
+            font-size: 0.75rem;
+            color: #f87171;
+            text-align: center;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background-color: #4698e5;
+            color: #ffffff;
+            font-weight: 500;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 10px 15px -3px rgba(70, 139, 229, 0.3);
+            transition: all 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: #63c9f1;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-icon">
+                <img src="/assets/img/logos/icon-rnd.png" alt="Logo">
+            </div>
+            <h1>Connexion VideoLead</h1>
+            <p>Entre tes identifiants Morgann Music Platforms pour te connecter.</p>
+        </div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>Adresse e-mail</label>
+                <input type="email" id="email" required autocomplete="email" placeholder="toi@exemple.com">
+            </div>
+
+            <div class="form-group">
+                <label>Mot de passe</label>
+                <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+            </div>
+
+            <div id="errorMessage" class="hidden"></div>
+
+            <button type="submit" id="submitBtn" class="btn-primary">
+                Se connecter
+            </button>
+        </form>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDSPUArpApBuK0Cn9VbeMtqk4JC-gqruJc",
+            authDomain: "morgann-music-cp.firebaseapp.com",
+            projectId: "morgann-music-cp",
+            storageBucket: "morgann-music-cp.firebasestorage.app",
+            messagingSenderId: "666812685196",
+            appId: "1:666812685196:web:bb237f4b53a92f038494a9",
+            measurementId: "G-P3EJ3T9RKS"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const loginForm = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('errorMessage');
+        const submitBtn = document.getElementById('submitBtn');
+
+        window.handleLogin = async function (event) {
+            event.preventDefault();
+            errorMessage.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Connexion en cours...";
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+
+                if (window.opener && !window.opener.closed) {
+                    window.opener.location.reload();
+                    window.close();
+                } else {
+                    window.location.href = "index.html";
+                }
+            } catch (error) {
+                console.error("Erreur de connexion :", error);
+                errorMessage.textContent = "Identifiants incorrects ou erreur réseau.";
+                errorMessage.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Se connecter";
+            }
+        };
+    </script>
+</body>
+
+</html>

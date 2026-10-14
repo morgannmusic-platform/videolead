@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>VlogFlow - Gestionnaire de Fichiers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" href="assets/img/logos/apple.png">
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            background: #020617;
+            font-family: 'Inter', sans-serif;
+            color: #f8fafc;
+        }
+
+        .drag-over {
+            border-color: #6366f1 !important;
+            background-color: rgba(99, 102, 241, 0.15) !important;
+            transform: scale(1.02);
+        }
+
+        .breadcrumb-drop-active {
+            background-color: rgba(99, 102, 241, 0.3) !important;
+            color: #ffffff !important;
+            border-radius: 0.375rem;
+            outline: 2px dashed #6366f1;
+        }
+    </style>
+</head>
+
+<body class="flex flex-col h-full overflow-hidden">
+    <!-- Barre de Navigation -->
+    <header
+        class="h-16 px-4 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between z-50">
+        <div class="flex items-center space-x-3">
+            <a href="index.html"
+                class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+            </a>
+            <div>
+                <h1 class="font-bold text-sm text-white">VlogFinder</h1>
+                <nav id="breadcrumb" class="flex items-center space-x-1 text-xs text-slate-400 mt-0.5">
+                    <!-- Injecté dynamiquement -->
+                </nav>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="openNewFolderModal()"
+                class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition active:scale-95 flex items-center space-x-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                <span>Nouveau dossier</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Sous-barre d'actions -->
+    <div
+        class="px-4 py-3 bg-slate-900/30 border-b border-slate-800/60 flex items-center justify-between text-xs text-slate-400">
+        <button id="backBtn" onclick="goToParentFolder()"
+            class="hidden flex items-center space-x-1 text-indigo-400 hover:text-indigo-300 font-medium">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12">
+                </path>
+            </svg>
+            <span>Dossier parent</span>
+        </button>
+        <span id="itemCount" class="text-[11px]">Chargement...</span>
+    </div>
+
+    <!-- Zone Principale (Grille Finder) -->
+    <main id="dropZone" class="flex-1 overflow-y-auto p-6 border-2 border-dashed border-transparent transition-all">
+        <div id="fileList"
+            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-7xl mx-auto">
+            <!-- Injecté dynamiquement -->
+        </div>
+    </main>
+
+    <!-- Modal Lecteur Vidéo -->
+    <div id="videoModal"
+        class="hidden fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
+        <div
+            class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <h3 id="modalVideoTitle" class="font-semibold text-sm text-white truncate">Visualisation</h3>
+                <button onclick="closeVideoModal()"
+                    class="w-8 h-8 rounded-xl bg-slate-800 text-slate-400 flex items-center justify-center hover:text-white">✕</button>
+            </div>
+            <div class="relative bg-black flex items-center justify-center aspect-[9/16] max-h-[60vh]">
+                <video id="modalPlayer" controls playsinline class="w-full h-full object-contain"></video>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Création Dossier -->
+    <div id="folderModal"
+        class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl">
+            <h3 class="font-bold text-base text-white">Créer un nouveau dossier</h3>
+            <input type="text" id="folderNameInput" placeholder="Nom du dossier..."
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500">
+            <div class="flex space-x-2">
+                <button onclick="closeNewFolderModal()"
+                    class="flex-1 py-2.5 rounded-xl bg-slate-800 text-xs font-semibold text-slate-300">Annuler</button>
+                <button onclick="createFolder()"
+                    class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-xs font-semibold text-white">Créer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "https://api.videolead.mm-cp.uk";
+        let currentFolder = "Vlogs";
+        let allItems = [];
+        let customFolders = JSON.parse(localStorage.getItem('custom_folders') || '[]');
+        const videoDurations = {};
+
+        async function fetchFiles() {
+            try {
+                const res = await fetch(`${API_BASE}/videos`);
+                if (!res.ok) throw new Error("Erreur réseau");
+                allItems = await res.json();
+                render();
+            } catch (err) {
+                console.error(err);
+                const listEl = document.getElementById('fileList');
+                if (listEl) {
+                    listEl.innerHTML = `<p class="col-span-full text-center text-xs text-red-400 py-8">Impossible de charger les fichiers depuis le worker.</p>`;
+                }
+            }
+        }
+
+        function updateBreadcrumb() {
+            const nav = document.getElementById('breadcrumb');
+            const parts = currentFolder.split('/');
+            let accumulatedPath = '';
+            let html = '';
+
+            parts.forEach((part, index) => {
+                accumulatedPath += (index === 0 ? part : `/${part}`);
+                const isLast = index === parts.length - 1;
+                const pathTarget = accumulatedPath;
+
+                html += `
+                    <span 
+                        class="px-2 py-0.5 rounded transition cursor-pointer font-medium ${isLast ? 'text-white font-semibold' : 'hover:text-indigo-400 hover:bg-slate-800'}"
+                        onclick="openFolder('${pathTarget}')"
+                        ondragover="handleBreadcrumbDragOver(event)"
+                        ondragleave="handleBreadcrumbDragLeave(event)"
+                        ondrop="handleBreadcrumbDrop(event, '${pathTarget}')"
+                        title="Glisser un fichier ici pour le déplacer vers ${part}"
+                    >
+                        ${part}
+                    </span>
+                `;
+
+                if (!isLast) {
+                    html += `<span class="text-slate-600 select-none">/</span>`;
+                }
+            });
+
+            nav.innerHTML = html;
+        }
+
+        function render() {
+            const listEl = document.getElementById('fileList');
+            if (!listEl) return;
+
+            updateBreadcrumb();
+            document.getElementById('backBtn').classList.toggle('hidden', currentFolder === "Vlogs");
+
+            let subFolders = new Set();
+
+            customFolders.forEach(f => {
+                if (f.startsWith(currentFolder + "/") && f !== currentFolder) {
+                    const rel = f.replace(currentFolder + "/", "").split('/')[0];
+                    if (rel) subFolders.add(rel);
+                } else if (currentFolder === "Vlogs" && !f.includes("/")) {
+                    subFolders.add(f);
+                }
+            });
+
+            allItems.forEach(i => {
+                const f = i.folder || 'Vlogs';
+                if (f.startsWith(currentFolder + "/") && f !== currentFolder) {
+                    const rel = f.replace(currentFolder + "/", "").split('/')[0];
+                    if (rel) subFolders.add(rel);
+                }
+            });
+
+            const foldersInCurrent = Array.from(subFolders);
+            const filesInCurrent = allItems.filter(i => (i.folder || 'Vlogs') === currentFolder);
+
+            let html = '';
+
+            // Dossiers
+            foldersInCurrent.forEach(folderName => {
+                const fullPath = `${currentFolder}/${folderName}`;
+                html += `
+                    <div 
+                        draggable="true"
+                        ondragstart="handleItemDragStart(event, 'folder', '${fullPath}')"
+                        ondragover="handleFolderDragOver(event)"
+                        ondragleave="handleFolderDragLeave(event)"
+                        ondrop="handleFolderDrop(event, '${fullPath}')"
+                        onclick="openFolder('${fullPath}')" 
+                        class="group bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 hover:border-indigo-500/50 hover:bg-slate-900 transition flex flex-col items-center text-center cursor-pointer space-y-2 select-none"
+                    >
+                        <div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-105 transition shadow-inner pointer-events-none">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="min-w-0 w-full pointer-events-none">
+                            <h4 class="font-semibold text-xs text-white truncate">${folderName}</h4>
+                            <p class="text-[10px] text-slate-400">Dossier</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Fichiers
+            filesInCurrent.forEach(file => {
+                const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+                const durationText = videoDurations[file.filename] !== undefined ? `${videoDurations[file.filename]}s` : 'Calcul...';
+
+                if (videoDurations[file.filename] === undefined) {
+                    fetchDuration(file.filename);
+                }
+
+                html += `
+                    <div 
+                        draggable="true"
+                        ondragstart="handleItemDragStart(event, 'file', '${file.filename}')"
+                        class="group bg-slate-900/60 border border-slate-800/60 rounded-2xl p-4 hover:border-slate-700 transition flex flex-col justify-between space-y-3 select-none"
+                    >
+                        <div class="flex flex-col items-center text-center cursor-pointer space-y-2" onclick="openVideoModal('${file.filename}')">
+                            <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition shrink-0 shadow-inner pointer-events-none">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                            <div class="min-w-0 w-full pointer-events-none">
+                                <h4 class="font-semibold text-xs text-white truncate" title="${file.filename}">${file.filename}</h4>
+                                <p class="text-[10px] text-slate-400">${sizeMb} Mo • <span id="dur-${file.filename}">${durationText}</span></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-800/60">
+                            <button id="btn-convert-${file.filename}" onclick="convertAndDownloadMP4('${file.filename}')" class="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-[10px] font-semibold text-white transition active:scale-95 flex items-center space-x-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                <span>MP4</span>
+                            </button>
+                            <button onclick="deleteFile('${file.filename}')" class="w-7 h-7 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center hover:bg-red-500/20 transition active:scale-95">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            if (!foldersInCurrent.length && !filesInCurrent.length) {
+                html = `<p class="col-span-full text-center text-xs text-slate-500 py-12">Ce dossier est vide.</p>`;
+            }
+
+            listEl.innerHTML = html;
+            document.getElementById('itemCount').textContent = `${foldersInCurrent.length} dossier(s), ${filesInCurrent.length} fichier(s)`;
+        }
+
+        // --- Conversion et Téléchargement MP4 ---
+        async function convertAndDownloadMP4(filename) {
+            const btn = document.getElementById(`btn-convert-${filename}`);
+            const originalText = btn ? btn.innerHTML : '';
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="animate-pulse">Conversion...</span>`;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/video/${filename}`);
+                if (!response.ok) throw new Error("Erreur de récupération de la vidéo");
+
+                const blob = await response.blob();
+
+                // Forçage du Blob en MIME-type MP4
+                const mp4Blob = new Blob([blob], { type: 'video/mp4' });
+                const downloadUrl = URL.createObjectURL(mp4Blob);
+
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+
+                // S'assure que le fichier enregistré a bien l'extension .mp4
+                const cleanName = filename.substring(0, filename.lastIndexOf('.')) || filename;
+                link.download = `${cleanName}.mp4`;
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                URL.revokeObjectURL(downloadUrl);
+            } catch (err) {
+                console.error("Erreur conversion/téléchargement :", err);
+                alert("Impossible de convertir et télécharger la vidéo.");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            }
+        }
+
+        // --- Drag & Drop logique ---
+
+        function handleItemDragStart(e, itemType, itemId) {
+            e.dataTransfer.setData('application/json', JSON.stringify({ type: itemType, id: itemId }));
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleFolderDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleFolderDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleFolderDrop(e, targetFolderPath) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.remove('drag-over');
+
+            const rawData = e.dataTransfer.getData('application/json');
+            if (!rawData) return;
+
+            try {
+                const data = JSON.parse(rawData);
+                if (data.type === 'file') {
+                    moveFileToFolder(data.id, targetFolderPath);
+                }
+            } catch (err) {
+                console.error("Erreur drop dossier", err);
+            }
+        }
+
+        function handleBreadcrumbDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.add('breadcrumb-drop-active');
+        }
+
+        function handleBreadcrumbDragLeave(e) {
+            e.currentTarget.classList.remove('breadcrumb-drop-active');
+        }
+
+        function handleBreadcrumbDrop(e, targetFolderPath) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.remove('breadcrumb-drop-active');
+
+            const rawData = e.dataTransfer.getData('application/json');
+            if (!rawData) return;
+
+            try {
+                const data = JSON.parse(rawData);
+                if (data.type === 'file') {
+                    moveFileToFolder(data.id, targetFolderPath);
+                }
+            } catch (err) {
+                console.error("Erreur drop chemin d'accès", err);
+            }
+        }
+
+        function moveFileToFolder(filename, targetFolder) {
+            const item = allItems.find(i => i.filename === filename);
+            if (item) {
+                item.folder = targetFolder;
+                render();
+            }
+        }
+
+        // --- Fonctions auxiliaires ---
+
+        function fetchDuration(filename) {
+            const tempVid = document.createElement('video');
+            tempVid.src = `${API_BASE}/video/${filename}`;
+            tempVid.preload = 'metadata';
+            tempVid.onloadedmetadata = () => {
+                const secs = Math.round(tempVid.duration);
+                videoDurations[filename] = secs;
+                const el = document.getElementById(`dur-${filename}`);
+                if (el) el.textContent = `${secs}s`;
+            };
+            tempVid.onerror = () => {
+                videoDurations[filename] = 0;
+                const el = document.getElementById(`dur-${filename}`);
+                if (el) el.textContent = '0s';
+            };
+        }
+
+        function openVideoModal(filename) {
+            document.getElementById('modalVideoTitle').textContent = filename;
+            const player = document.getElementById('modalPlayer');
+            player.src = `${API_BASE}/video/${filename}`;
+            document.getElementById('videoModal').classList.remove('hidden');
+            player.play();
+        }
+
+        function closeVideoModal() {
+            const player = document.getElementById('modalPlayer');
+            player.pause();
+            player.src = '';
+            document.getElementById('videoModal').classList.add('hidden');
+        }
+
+        function openFolder(path) {
+            currentFolder = path;
+            render();
+        }
+
+        function goToParentFolder() {
+            const parts = currentFolder.split('/');
+            parts.pop();
+            currentFolder = parts.join('/') || "Vlogs";
+            render();
+        }
+
+        function openNewFolderModal() {
+            document.getElementById('folderNameInput').value = '';
+            document.getElementById('folderModal').classList.remove('hidden');
+        }
+
+        function closeNewFolderModal() {
+            document.getElementById('folderModal').classList.add('hidden');
+        }
+
+        function createFolder() {
+            const name = document.getElementById('folderNameInput').value.trim();
+            if (!name) return;
+            const newFolder = `${currentFolder}/${name}`;
+            if (!customFolders.includes(newFolder)) {
+                customFolders.push(newFolder);
+                localStorage.setItem('custom_folders', JSON.stringify(customFolders));
+            }
+            closeNewFolderModal();
+            render();
+        }
+
+        async function deleteFile(filename) {
+            if (!confirm("Voulez-vous vraiment supprimer cette vidéo ?")) return;
+            try {
+                const res = await fetch(`${API_BASE}/delete/${filename}`, { method: 'DELETE' });
+                if (res.ok) {
+                    allItems = allItems.filter(i => i.filename !== filename);
+                    render();
+                } else {
+                    alert("Erreur lors de la suppression");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Erreur réseau");
+            }
+        }
+
+        const dropZone = document.getElementById('dropZone');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+
+            const files = e.dataTransfer.files;
+            if (!files || !files.length) return;
+
+            for (const file of files) {
+                if (!file.type.startsWith('video/')) continue;
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('folder', currentFolder);
+
+                try {
+                    const res = await fetch(`${API_BASE}/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (res.ok) {
+                        console.log("Fichier uploadé dans le dossier courant");
+                    }
+                } catch (err) {
+                    console.error("Erreur lors de l'upload glissé", err);
+                }
+            }
+            fetchFiles();
+        });
+
+        fetchFiles();
+    </script>
+</body>
+
+</html>
